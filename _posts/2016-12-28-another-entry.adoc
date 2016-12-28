@@ -1,0 +1,12 @@
+= How this blog was set up
+:showtitle:
+:page-navtitle: Blog Setup
+:page-excerpt: Describes how this blog was set up.
+:page-root: ../../../
+
+== TBD
+
+The credits are listed in the top page but I have every intention of describing _how_ this blog
+was created so others might benefit from my small battles.
+
+_Stay tuned._

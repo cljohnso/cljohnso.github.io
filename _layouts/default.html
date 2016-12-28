@@ -54,17 +54,18 @@
 
         <h4>Posts</h4>
         <ul id="posts" class="posts nav">
-            {% for post in site.posts limit: 5 %}
+            {% for post in site.posts limit: 10 %}
             <li><a href=".{{ post.url }}">{{ post.navtitle }}</a></li>
             {% endfor %}
         </ul>
 
+<!--
         <div class="panel">
             <h5>Featured</h5>
 
-            <p>Pork drumstick turkey fugiat. Tri-tip elit turducken pork chop in. Swine short ribs meatball irure bacon
-                nulla pork belly cupidatat meatloaf cow.</p>
+            <p>Featured?  There's only one blog post so far.</p>
         </div>
+-->
 
     </aside>
 
@@ -81,7 +82,8 @@
         <hr>
         <div class="row">
             <div class="large-12 columns">
-                <p>Footer</p>
+                <p>The views and opinions expressed here-in are those of the author and are not necessarily those
+                    of my employer.</p>
             </div>
         </div>
     </div>
