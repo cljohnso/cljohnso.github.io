@@ -1,0 +1,60 @@
+#!/bin/sh
+
+START_TIME=${1:-`date '+%s'`}
+timeDelta() {
+  currentTime=`date '+%s'`
+  echo `expr $currentTime - $START_TIME`
+}
+
+echo "`timeDelta` $0 started; PID=$$"
+
+termExit=
+termCount=0
+CHILD_PID=0
+cleanup_TERM() {                                        # <1>
+  termCount=`expr $termCount + 1`
+  # Forward the TERM signal to the background process and await completion of that
+  # process.  Unless interrupted by an additional signal, the exit code of the 
+  # wait will be the background process exit code.
+  echo "`timeDelta` $0:cleanup_TERM [$$] ($termCount) Processing signal; sending TERM to ./tryWaitBackground [$CHILD_PID]"
+  kill -TERM $CHILD_PID                                 # <2>
+  echo "`timeDelta` $0:cleanup_TERM [$$] ($termCount) Entering wait after signaling ./tryWaitBackground [$CHILD_PID]"
+  wait $CHILD_PID                                       # <3>
+  waitExit=$?
+  # Preserve the first/only wait exit code; in the event of multiple TERM signals, this
+  # should reflect the real background process exit code.
+  termExit=${termExit:-$waitExit}                       # <4>
+  echo "`timeDelta` $0:cleanup_TERM [$$] ($termCount) signal processing wait done; waitExit=$waitExit, exitCode=$termExit"
+}
+trap cleanup_TERM TERM
+
+echo "`timeDelta` $0 [$$] entering start/wait loop on ./tryWaitBackground [$CHILD_PID]"
+
+start=true
+while $start; do                                        # <8>
+  ${USE_SHELL} ./tryWaitBackground $START_TIME &        # <5>
+  CHILD_PID=$!
+  rc=$?
+  echo "`timeDelta` $0 [$$] started ./tryWaitBackground [$CHILD_PID]; rc=$rc"
+
+  # Loop on wait until the background process is no longer alive.
+  while kill -0 $CHILD_PID 2>/dev/null ; do             # <6>
+    echo "`timeDelta` $0 [$$] entering mainline wait on ./tryWaitBackground [$CHILD_PID]"
+    # The following 'wait' may or may not be terminated by a TERM signal (handled above).
+    # Unfortunately, there is nothing to distinguish the exit code from a signal-interrupted
+    # 'wait' versus the exit code for the awaited process.  So, the TERM handler above
+    # includes its own wait to pick up the *real* exit code which is used as the 
+    # exit code if it was set.
+    wait $CHILD_PID                                     # <7>
+    waitValue=$?
+    exitValue=${termExit:-$waitValue}
+    echo "`timeDelta` $0 [$$] exited mainline wait on ./tryWaitBackground [$CHILD_PID]; waitValue=$waitValue, termExit=$termExit, exitValue=$exitValue"
+  done
+
+  start=false
+
+  echo "`timeDelta` $0 [$$] start/wait loop on ./tryWaitBackground [$CHILD_PID] exited; rc=$exitValue"
+done
+
+echo "`timeDelta` $0 [$$] exiting with rc=$exitValue"
+exit $exitValue

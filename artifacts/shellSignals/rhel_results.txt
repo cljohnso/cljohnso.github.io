@@ -1,0 +1,664 @@
+
+
+////
+=======================================================================
+host: rhel72vm.mccljo01.eur.ad.sag
+os: [Linux] Red Hat Enterprise Linux Server release 7.2 (Maipo)
+Candidate shells:
+    /bin/sh
+    /bin/bash
+    /usr/bin/sh
+    /usr/bin/bash
+=======================================================================
+////
+
+
+
+# tag::_bin_sh-true-false-30[]
+.Running HANDLE_TERM=true USE_SHELL='/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [4674] starting ./tryWait
+0 ./tryWaitDriver [4674] pausing 5 seconds before sending TERM to ./tryWait [4681]
+0 ./tryWait started; PID=4681
+0 ./tryWait [4681] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [4681] started ./tryWaitBackground [4698]; rc=0
+0 ./tryWaitBackground started; PID=4698, PPID=4681
+1 ./tryWait [4681] entering mainline wait on ./tryWaitBackground [4698]
+1 ./tryWaitBackground [4698] entering sleep 30
+5 ./tryWaitDriver [4674] sending TERM to ./tryWait [4681]
+5 ./tryWaitDriver [4674] waiting for ./tryWait [4681] to complete
+5 ./tryWait:cleanup_TERM [4681] (1) Processing signal; sending TERM to ./tryWaitBackground [4698]
+5 ./tryWait:cleanup_TERM [4681] (1) Entering wait after signaling ./tryWaitBackground [4698]
+31 ./tryWaitBackground:handle_TERM [4698] received TERM signal; exiting with rc=7
+31 ./tryWait:cleanup_TERM [4681] (1) signal processing wait done; waitExit=7, exitCode=7
+31 ./tryWait [4681] exited mainline wait on ./tryWaitBackground [4698]; waitValue=143, termExit=7, exitValue=7
+31 ./tryWait [4681] start/wait loop on ./tryWaitBackground [4698] exited; rc=7
+31 ./tryWait [4681] exiting with rc=7
+31 ./tryWaitDriver [4674] wait for ./tryWait [4681] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.353s
+user	0m0.009s
+sys	0m0.053s
+----
+# end::_bin_sh-true-false-30[]
+
+
+# tag::_bin_sh-true-true-30[]
+.Running HANDLE_TERM=true TERM_AGAIN=true USE_SHELL='/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [4788] starting ./tryWait
+0 ./tryWaitDriver [4788] pausing 5 seconds before sending TERM to ./tryWait [4795]
+0 ./tryWait started; PID=4795
+0 ./tryWait [4795] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [4795] started ./tryWaitBackground [4812]; rc=0
+0 ./tryWaitBackground started; PID=4812, PPID=4795
+0 ./tryWait [4795] entering mainline wait on ./tryWaitBackground [4812]
+0 ./tryWaitBackground [4812] entering sleep 30
+5 ./tryWaitDriver [4788] sending TERM to ./tryWait [4795]
+5 ./tryWait:cleanup_TERM [4795] (1) Processing signal; sending TERM to ./tryWaitBackground [4812]
+5 ./tryWait:cleanup_TERM [4795] (1) Entering wait after signaling ./tryWaitBackground [4812]
+6 ./tryWaitDriver [4788] sending TERM to ./tryWait [4795] **again**
+6 ./tryWaitDriver [4788] waiting for ./tryWait [4795] to complete
+30 ./tryWaitBackground:handle_TERM [4812] received TERM signal; exiting with rc=7
+30 ./tryWait:cleanup_TERM [4795] (1) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait:cleanup_TERM [4795] (2) Processing signal; sending TERM to ./tryWaitBackground [4812]
+./tryWait: line 20: kill: (4812) - No such process
+30 ./tryWait:cleanup_TERM [4795] (2) Entering wait after signaling ./tryWaitBackground [4812]
+./tryWait: line 22: wait: pid 4812 is not a child of this shell
+30 ./tryWait:cleanup_TERM [4795] (2) signal processing wait done; waitExit=127, exitCode=7
+30 ./tryWait [4795] exited mainline wait on ./tryWaitBackground [4812]; waitValue=143, termExit=7, exitValue=7
+30 ./tryWait [4795] start/wait loop on ./tryWaitBackground [4812] exited; rc=7
+30 ./tryWait [4795] exiting with rc=7
+30 ./tryWaitDriver [4788] wait for ./tryWait [4795] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.488s
+user	0m0.012s
+sys	0m0.076s
+----
+# end::_bin_sh-true-true-30[]
+
+
+# tag::_bin_sh-false-false-30[]
+.Running HANDLE_TERM=false USE_SHELL='/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [4912] starting ./tryWait
+0 ./tryWaitDriver [4912] pausing 5 seconds before sending TERM to ./tryWait [4919]
+0 ./tryWait started; PID=4919
+0 ./tryWait [4919] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [4919] started ./tryWaitBackground [4936]; rc=0
+0 ./tryWaitBackground started; PID=4936, PPID=4919
+0 ./tryWait [4919] entering mainline wait on ./tryWaitBackground [4936]
+0 ./tryWaitBackground [4936] entering sleep 30
+5 ./tryWaitDriver [4912] sending TERM to ./tryWait [4919]
+5 ./tryWaitDriver [4912] waiting for ./tryWait [4919] to complete
+5 ./tryWait:cleanup_TERM [4919] (1) Processing signal; sending TERM to ./tryWaitBackground [4936]
+5 ./tryWait:cleanup_TERM [4919] (1) Entering wait after signaling ./tryWaitBackground [4936]
+5 ./tryWait:cleanup_TERM [4919] (1) signal processing wait done; waitExit=143, exitCode=143
+5 ./tryWait [4919] exited mainline wait on ./tryWaitBackground [4936]; waitValue=143, termExit=143, exitValue=143
+5 ./tryWait [4919] start/wait loop on ./tryWaitBackground [4936] exited; rc=143
+5 ./tryWait [4919] exiting with rc=143
+5 ./tryWaitDriver [4912] wait for ./tryWait [4919] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m5.327s
+user	0m0.007s
+sys	0m0.055s
+----
+# end::_bin_sh-false-false-30[]
+
+
+# tag::_bin_sh-false-true-30[]
+.Running HANDLE_TERM=false TERM_AGAIN=true USE_SHELL='/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5007] starting ./tryWait
+1 ./tryWaitDriver [5007] pausing 5 seconds before sending TERM to ./tryWait [5014]
+1 ./tryWait started; PID=5014
+1 ./tryWait [5014] entering start/wait loop on ./tryWaitBackground [0]
+1 ./tryWait [5014] started ./tryWaitBackground [5031]; rc=0
+1 ./tryWaitBackground started; PID=5031, PPID=5014
+1 ./tryWait [5014] entering mainline wait on ./tryWaitBackground [5031]
+1 ./tryWaitBackground [5031] entering sleep 30
+6 ./tryWaitDriver [5007] sending TERM to ./tryWait [5014]
+6 ./tryWait:cleanup_TERM [5014] (1) Processing signal; sending TERM to ./tryWaitBackground [5031]
+6 ./tryWait:cleanup_TERM [5014] (1) Entering wait after signaling ./tryWaitBackground [5031]
+6 ./tryWait:cleanup_TERM [5014] (1) signal processing wait done; waitExit=143, exitCode=143
+6 ./tryWait [5014] exited mainline wait on ./tryWaitBackground [5031]; waitValue=143, termExit=143, exitValue=143
+6 ./tryWait [5014] start/wait loop on ./tryWaitBackground [5031] exited; rc=143
+6 ./tryWait [5014] exiting with rc=143
+7 ./tryWaitDriver [5007] sending TERM to ./tryWait [5014] **again**
+./tryWaitDriver: line 58: kill: (5014) - No such process
+7 ./tryWaitDriver [5007] waiting for ./tryWait [5014] to complete
+7 ./tryWaitDriver [5007] wait for ./tryWait [5014] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m6.126s
+user	0m0.007s
+sys	0m0.048s
+----
+# end::_bin_sh-false-true-30[]
+
+
+# tag::_bin_sh---4[]
+.Running DELAY=4 USE_SHELL='/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5106] starting ./tryWait
+0 ./tryWaitDriver [5106] pausing 5 seconds before sending TERM to ./tryWait [5113]
+0 ./tryWait started; PID=5113
+0 ./tryWait [5113] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [5113] started ./tryWaitBackground [5130]; rc=0
+0 ./tryWaitBackground started; PID=5130, PPID=5113
+0 ./tryWait [5113] entering mainline wait on ./tryWaitBackground [5130]
+0 ./tryWaitBackground [5130] entering sleep 4
+4 ./tryWaitBackground [5130] exited sleep 4; sleep rc=0
+4 ./tryWaitBackground [5130] exiting with rc=2
+4 ./tryWait [5113] exited mainline wait on ./tryWaitBackground [5130]; waitValue=2, termExit=, exitValue=2
+4 ./tryWait [5113] start/wait loop on ./tryWaitBackground [5130] exited; rc=2
+4 ./tryWait [5113] exiting with rc=2
+5 ./tryWaitDriver [5106] waiting for ./tryWait [5113] to complete
+5 ./tryWaitDriver [5106] wait for ./tryWait [5113] finished; rc=2
+
+    *** tryWaitDriver rc=2
+
+real	0m5.091s
+user	0m0.006s
+sys	0m0.042s
+----
+# end::_bin_sh---4[]
+
+
+# tag::_bin_bash-true-false-30[]
+.Running HANDLE_TERM=true USE_SHELL='/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5187] starting ./tryWait
+0 ./tryWaitDriver [5187] pausing 5 seconds before sending TERM to ./tryWait [5194]
+0 ./tryWait started; PID=5194
+0 ./tryWait [5194] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [5194] started ./tryWaitBackground [5212]; rc=0
+0 ./tryWaitBackground started; PID=5212, PPID=5194
+0 ./tryWait [5194] entering mainline wait on ./tryWaitBackground [5212]
+0 ./tryWaitBackground [5212] entering sleep 30
+5 ./tryWaitDriver [5187] sending TERM to ./tryWait [5194]
+5 ./tryWaitDriver [5187] waiting for ./tryWait [5194] to complete
+5 ./tryWait:cleanup_TERM [5194] (1) Processing signal; sending TERM to ./tryWaitBackground [5212]
+5 ./tryWait:cleanup_TERM [5194] (1) Entering wait after signaling ./tryWaitBackground [5212]
+30 ./tryWaitBackground:handle_TERM [5212] received TERM signal; exiting with rc=7
+30 ./tryWait:cleanup_TERM [5194] (1) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait [5194] exited mainline wait on ./tryWaitBackground [5212]; waitValue=143, termExit=7, exitValue=7
+30 ./tryWait [5194] start/wait loop on ./tryWaitBackground [5212] exited; rc=7
+30 ./tryWait [5194] exiting with rc=7
+30 ./tryWaitDriver [5187] wait for ./tryWait [5194] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.432s
+user	0m0.004s
+sys	0m0.062s
+----
+# end::_bin_bash-true-false-30[]
+
+
+# tag::_bin_bash-true-true-30[]
+.Running HANDLE_TERM=true TERM_AGAIN=true USE_SHELL='/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5294] starting ./tryWait
+0 ./tryWaitDriver [5294] pausing 5 seconds before sending TERM to ./tryWait [5301]
+0 ./tryWait started; PID=5301
+0 ./tryWait [5301] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [5301] started ./tryWaitBackground [5318]; rc=0
+0 ./tryWaitBackground started; PID=5318, PPID=5301
+0 ./tryWait [5301] entering mainline wait on ./tryWaitBackground [5318]
+0 ./tryWaitBackground [5318] entering sleep 30
+5 ./tryWaitDriver [5294] sending TERM to ./tryWait [5301]
+5 ./tryWait:cleanup_TERM [5301] (1) Processing signal; sending TERM to ./tryWaitBackground [5318]
+5 ./tryWait:cleanup_TERM [5301] (1) Entering wait after signaling ./tryWaitBackground [5318]
+6 ./tryWaitDriver [5294] sending TERM to ./tryWait [5301] **again**
+6 ./tryWaitDriver [5294] waiting for ./tryWait [5301] to complete
+30 ./tryWaitBackground:handle_TERM [5318] received TERM signal; exiting with rc=7
+30 ./tryWait:cleanup_TERM [5301] (1) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait:cleanup_TERM [5301] (2) Processing signal; sending TERM to ./tryWaitBackground [5318]
+./tryWait: line 20: kill: (5318) - No such process
+30 ./tryWait:cleanup_TERM [5301] (2) Entering wait after signaling ./tryWaitBackground [5318]
+30 ./tryWait:cleanup_TERM [5301] (2) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait [5301] exited mainline wait on ./tryWaitBackground [5318]; waitValue=143, termExit=7, exitValue=7
+30 ./tryWait [5301] start/wait loop on ./tryWaitBackground [5318] exited; rc=7
+30 ./tryWait [5301] exiting with rc=7
+30 ./tryWaitDriver [5294] wait for ./tryWait [5301] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.363s
+user	0m0.009s
+sys	0m0.074s
+----
+# end::_bin_bash-true-true-30[]
+
+
+# tag::_bin_bash-false-false-30[]
+.Running HANDLE_TERM=false USE_SHELL='/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5426] starting ./tryWait
+0 ./tryWaitDriver [5426] pausing 5 seconds before sending TERM to ./tryWait [5433]
+1 ./tryWait started; PID=5433
+1 ./tryWait [5433] entering start/wait loop on ./tryWaitBackground [0]
+1 ./tryWait [5433] started ./tryWaitBackground [5450]; rc=0
+1 ./tryWaitBackground started; PID=5450, PPID=5433
+1 ./tryWait [5433] entering mainline wait on ./tryWaitBackground [5450]
+1 ./tryWaitBackground [5450] entering sleep 30
+6 ./tryWaitDriver [5426] sending TERM to ./tryWait [5433]
+6 ./tryWaitDriver [5426] waiting for ./tryWait [5433] to complete
+6 ./tryWait:cleanup_TERM [5433] (1) Processing signal; sending TERM to ./tryWaitBackground [5450]
+6 ./tryWait:cleanup_TERM [5433] (1) Entering wait after signaling ./tryWaitBackground [5450]
+6 ./tryWait:cleanup_TERM [5433] (1) signal processing wait done; waitExit=143, exitCode=143
+6 ./tryWait [5433] exited mainline wait on ./tryWaitBackground [5450]; waitValue=143, termExit=143, exitValue=143
+6 ./tryWait [5433] start/wait loop on ./tryWaitBackground [5450] exited; rc=143
+6 ./tryWait [5433] exiting with rc=143
+6 ./tryWaitDriver [5426] wait for ./tryWait [5433] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m5.596s
+user	0m0.011s
+sys	0m0.055s
+----
+# end::_bin_bash-false-false-30[]
+
+
+# tag::_bin_bash-false-true-30[]
+.Running HANDLE_TERM=false TERM_AGAIN=true USE_SHELL='/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5523] starting ./tryWait
+0 ./tryWaitDriver [5523] pausing 5 seconds before sending TERM to ./tryWait [5530]
+0 ./tryWait started; PID=5530
+0 ./tryWait [5530] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [5530] started ./tryWaitBackground [5548]; rc=0
+0 ./tryWaitBackground started; PID=5548, PPID=5530
+0 ./tryWait [5530] entering mainline wait on ./tryWaitBackground [5548]
+0 ./tryWaitBackground [5548] entering sleep 30
+5 ./tryWaitDriver [5523] sending TERM to ./tryWait [5530]
+5 ./tryWait:cleanup_TERM [5530] (1) Processing signal; sending TERM to ./tryWaitBackground [5548]
+5 ./tryWait:cleanup_TERM [5530] (1) Entering wait after signaling ./tryWaitBackground [5548]
+5 ./tryWait:cleanup_TERM [5530] (1) signal processing wait done; waitExit=143, exitCode=143
+5 ./tryWait [5530] exited mainline wait on ./tryWaitBackground [5548]; waitValue=143, termExit=143, exitValue=143
+5 ./tryWait [5530] start/wait loop on ./tryWaitBackground [5548] exited; rc=143
+5 ./tryWait [5530] exiting with rc=143
+6 ./tryWaitDriver [5523] sending TERM to ./tryWait [5530] **again**
+./tryWaitDriver: line 58: kill: (5530) - No such process
+6 ./tryWaitDriver [5523] waiting for ./tryWait [5530] to complete
+6 ./tryWaitDriver [5523] wait for ./tryWait [5530] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m6.305s
+user	0m0.008s
+sys	0m0.054s
+----
+# end::_bin_bash-false-true-30[]
+
+
+# tag::_bin_bash---4[]
+.Running DELAY=4 USE_SHELL='/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5624] starting ./tryWait
+0 ./tryWaitDriver [5624] pausing 5 seconds before sending TERM to ./tryWait [5631]
+0 ./tryWait started; PID=5631
+0 ./tryWait [5631] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [5631] started ./tryWaitBackground [5648]; rc=0
+0 ./tryWaitBackground started; PID=5648, PPID=5631
+1 ./tryWait [5631] entering mainline wait on ./tryWaitBackground [5648]
+1 ./tryWaitBackground [5648] entering sleep 4
+5 ./tryWaitBackground [5648] exited sleep 4; sleep rc=0
+5 ./tryWaitBackground [5648] exiting with rc=2
+5 ./tryWait [5631] exited mainline wait on ./tryWaitBackground [5648]; waitValue=2, termExit=, exitValue=2
+5 ./tryWait [5631] start/wait loop on ./tryWaitBackground [5648] exited; rc=2
+5 ./tryWait [5631] exiting with rc=2
+5 ./tryWaitDriver [5624] waiting for ./tryWait [5631] to complete
+5 ./tryWaitDriver [5624] wait for ./tryWait [5631] finished; rc=2
+
+    *** tryWaitDriver rc=2
+
+real	0m5.130s
+user	0m0.008s
+sys	0m0.043s
+----
+# end::_bin_bash---4[]
+
+
+# tag::_usr_bin_sh-true-false-30[]
+.Running HANDLE_TERM=true USE_SHELL='/usr/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5706] starting ./tryWait
+0 ./tryWaitDriver [5706] pausing 5 seconds before sending TERM to ./tryWait [5713]
+0 ./tryWait started; PID=5713
+1 ./tryWait [5713] entering start/wait loop on ./tryWaitBackground [0]
+1 ./tryWait [5713] started ./tryWaitBackground [5730]; rc=0
+1 ./tryWaitBackground started; PID=5730, PPID=5713
+1 ./tryWait [5713] entering mainline wait on ./tryWaitBackground [5730]
+1 ./tryWaitBackground [5730] entering sleep 30
+5 ./tryWaitDriver [5706] sending TERM to ./tryWait [5713]
+6 ./tryWaitDriver [5706] waiting for ./tryWait [5713] to complete
+6 ./tryWait:cleanup_TERM [5713] (1) Processing signal; sending TERM to ./tryWaitBackground [5730]
+6 ./tryWait:cleanup_TERM [5713] (1) Entering wait after signaling ./tryWaitBackground [5730]
+31 ./tryWaitBackground:handle_TERM [5730] received TERM signal; exiting with rc=7
+31 ./tryWait:cleanup_TERM [5713] (1) signal processing wait done; waitExit=7, exitCode=7
+31 ./tryWait [5713] exited mainline wait on ./tryWaitBackground [5730]; waitValue=143, termExit=7, exitValue=7
+31 ./tryWait [5713] start/wait loop on ./tryWaitBackground [5730] exited; rc=7
+31 ./tryWait [5713] exiting with rc=7
+31 ./tryWaitDriver [5706] wait for ./tryWait [5713] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.425s
+user	0m0.007s
+sys	0m0.072s
+----
+# end::_usr_bin_sh-true-false-30[]
+
+
+# tag::_usr_bin_sh-true-true-30[]
+.Running HANDLE_TERM=true TERM_AGAIN=true USE_SHELL='/usr/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [5905] starting ./tryWait
+0 ./tryWaitDriver [5905] pausing 5 seconds before sending TERM to ./tryWait [5912]
+0 ./tryWait started; PID=5912
+0 ./tryWait [5912] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [5912] started ./tryWaitBackground [5929]; rc=0
+0 ./tryWaitBackground started; PID=5929, PPID=5912
+0 ./tryWait [5912] entering mainline wait on ./tryWaitBackground [5929]
+0 ./tryWaitBackground [5929] entering sleep 30
+5 ./tryWaitDriver [5905] sending TERM to ./tryWait [5912]
+5 ./tryWait:cleanup_TERM [5912] (1) Processing signal; sending TERM to ./tryWaitBackground [5929]
+5 ./tryWait:cleanup_TERM [5912] (1) Entering wait after signaling ./tryWaitBackground [5929]
+6 ./tryWaitDriver [5905] sending TERM to ./tryWait [5912] **again**
+6 ./tryWaitDriver [5905] waiting for ./tryWait [5912] to complete
+30 ./tryWaitBackground:handle_TERM [5929] received TERM signal; exiting with rc=7
+30 ./tryWait:cleanup_TERM [5912] (1) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait:cleanup_TERM [5912] (2) Processing signal; sending TERM to ./tryWaitBackground [5929]
+./tryWait: line 20: kill: (5929) - No such process
+30 ./tryWait:cleanup_TERM [5912] (2) Entering wait after signaling ./tryWaitBackground [5929]
+./tryWait: line 22: wait: pid 5929 is not a child of this shell
+30 ./tryWait:cleanup_TERM [5912] (2) signal processing wait done; waitExit=127, exitCode=7
+30 ./tryWait [5912] exited mainline wait on ./tryWaitBackground [5929]; waitValue=143, termExit=7, exitValue=7
+30 ./tryWait [5912] start/wait loop on ./tryWaitBackground [5929] exited; rc=7
+30 ./tryWait [5912] exiting with rc=7
+30 ./tryWaitDriver [5905] wait for ./tryWait [5912] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.593s
+user	0m0.012s
+sys	0m0.081s
+----
+# end::_usr_bin_sh-true-true-30[]
+
+
+# tag::_usr_bin_sh-false-false-30[]
+.Running HANDLE_TERM=false USE_SHELL='/usr/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6037] starting ./tryWait
+1 ./tryWaitDriver [6037] pausing 5 seconds before sending TERM to ./tryWait [6044]
+1 ./tryWait started; PID=6044
+1 ./tryWait [6044] entering start/wait loop on ./tryWaitBackground [0]
+1 ./tryWait [6044] started ./tryWaitBackground [6061]; rc=0
+1 ./tryWaitBackground started; PID=6061, PPID=6044
+1 ./tryWait [6044] entering mainline wait on ./tryWaitBackground [6061]
+1 ./tryWaitBackground [6061] entering sleep 30
+6 ./tryWaitDriver [6037] sending TERM to ./tryWait [6044]
+6 ./tryWaitDriver [6037] waiting for ./tryWait [6044] to complete
+6 ./tryWait:cleanup_TERM [6044] (1) Processing signal; sending TERM to ./tryWaitBackground [6061]
+6 ./tryWait:cleanup_TERM [6044] (1) Entering wait after signaling ./tryWaitBackground [6061]
+6 ./tryWait:cleanup_TERM [6044] (1) signal processing wait done; waitExit=143, exitCode=143
+6 ./tryWait [6044] exited mainline wait on ./tryWaitBackground [6061]; waitValue=143, termExit=143, exitValue=143
+6 ./tryWait [6044] start/wait loop on ./tryWaitBackground [6061] exited; rc=143
+6 ./tryWait [6044] exiting with rc=143
+6 ./tryWaitDriver [6037] wait for ./tryWait [6044] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m5.546s
+user	0m0.009s
+sys	0m0.058s
+----
+# end::_usr_bin_sh-false-false-30[]
+
+
+# tag::_usr_bin_sh-false-true-30[]
+.Running HANDLE_TERM=false TERM_AGAIN=true USE_SHELL='/usr/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6132] starting ./tryWait
+0 ./tryWaitDriver [6132] pausing 5 seconds before sending TERM to ./tryWait [6139]
+0 ./tryWait started; PID=6139
+0 ./tryWait [6139] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [6139] started ./tryWaitBackground [6156]; rc=0
+0 ./tryWaitBackground started; PID=6156, PPID=6139
+0 ./tryWait [6139] entering mainline wait on ./tryWaitBackground [6156]
+0 ./tryWaitBackground [6156] entering sleep 30
+5 ./tryWaitDriver [6132] sending TERM to ./tryWait [6139]
+5 ./tryWait:cleanup_TERM [6139] (1) Processing signal; sending TERM to ./tryWaitBackground [6156]
+5 ./tryWait:cleanup_TERM [6139] (1) Entering wait after signaling ./tryWaitBackground [6156]
+5 ./tryWait:cleanup_TERM [6139] (1) signal processing wait done; waitExit=143, exitCode=143
+5 ./tryWait [6139] exited mainline wait on ./tryWaitBackground [6156]; waitValue=143, termExit=143, exitValue=143
+5 ./tryWait [6139] start/wait loop on ./tryWaitBackground [6156] exited; rc=143
+5 ./tryWait [6139] exiting with rc=143
+6 ./tryWaitDriver [6132] sending TERM to ./tryWait [6139] **again**
+./tryWaitDriver: line 58: kill: (6139) - No such process
+6 ./tryWaitDriver [6132] waiting for ./tryWait [6139] to complete
+6 ./tryWaitDriver [6132] wait for ./tryWait [6139] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m6.057s
+user	0m0.006s
+sys	0m0.058s
+----
+# end::_usr_bin_sh-false-true-30[]
+
+
+# tag::_usr_bin_sh---4[]
+.Running DELAY=4 USE_SHELL='/usr/bin/sh' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6231] starting ./tryWait
+0 ./tryWaitDriver [6231] pausing 5 seconds before sending TERM to ./tryWait [6238]
+0 ./tryWait started; PID=6238
+0 ./tryWait [6238] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [6238] started ./tryWaitBackground [6255]; rc=0
+0 ./tryWaitBackground started; PID=6255, PPID=6238
+0 ./tryWait [6238] entering mainline wait on ./tryWaitBackground [6255]
+0 ./tryWaitBackground [6255] entering sleep 4
+4 ./tryWaitBackground [6255] exited sleep 4; sleep rc=0
+4 ./tryWaitBackground [6255] exiting with rc=2
+4 ./tryWait [6238] exited mainline wait on ./tryWaitBackground [6255]; waitValue=2, termExit=, exitValue=2
+4 ./tryWait [6238] start/wait loop on ./tryWaitBackground [6255] exited; rc=2
+4 ./tryWait [6238] exiting with rc=2
+5 ./tryWaitDriver [6231] waiting for ./tryWait [6238] to complete
+5 ./tryWaitDriver [6231] wait for ./tryWait [6238] finished; rc=2
+
+    *** tryWaitDriver rc=2
+
+real	0m5.106s
+user	0m0.009s
+sys	0m0.047s
+----
+# end::_usr_bin_sh---4[]
+
+
+# tag::_usr_bin_bash-true-false-30[]
+.Running HANDLE_TERM=true USE_SHELL='/usr/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6313] starting ./tryWait
+0 ./tryWaitDriver [6313] pausing 5 seconds before sending TERM to ./tryWait [6320]
+0 ./tryWait started; PID=6320
+0 ./tryWait [6320] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [6320] started ./tryWaitBackground [6337]; rc=0
+0 ./tryWaitBackground started; PID=6337, PPID=6320
+0 ./tryWait [6320] entering mainline wait on ./tryWaitBackground [6337]
+0 ./tryWaitBackground [6337] entering sleep 30
+5 ./tryWaitDriver [6313] sending TERM to ./tryWait [6320]
+5 ./tryWaitDriver [6313] waiting for ./tryWait [6320] to complete
+5 ./tryWait:cleanup_TERM [6320] (1) Processing signal; sending TERM to ./tryWaitBackground [6337]
+5 ./tryWait:cleanup_TERM [6320] (1) Entering wait after signaling ./tryWaitBackground [6337]
+30 ./tryWaitBackground:handle_TERM [6337] received TERM signal; exiting with rc=7
+30 ./tryWait:cleanup_TERM [6320] (1) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait [6320] exited mainline wait on ./tryWaitBackground [6337]; waitValue=143, termExit=7, exitValue=7
+30 ./tryWait [6320] start/wait loop on ./tryWaitBackground [6337] exited; rc=7
+31 ./tryWait [6320] exiting with rc=7
+31 ./tryWaitDriver [6313] wait for ./tryWait [6320] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.486s
+user	0m0.007s
+sys	0m0.083s
+----
+# end::_usr_bin_bash-true-false-30[]
+
+
+# tag::_usr_bin_bash-true-true-30[]
+.Running HANDLE_TERM=true TERM_AGAIN=true USE_SHELL='/usr/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6422] starting ./tryWait
+0 ./tryWaitDriver [6422] pausing 5 seconds before sending TERM to ./tryWait [6429]
+0 ./tryWait started; PID=6429
+0 ./tryWait [6429] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [6429] started ./tryWaitBackground [6446]; rc=0
+0 ./tryWaitBackground started; PID=6446, PPID=6429
+0 ./tryWait [6429] entering mainline wait on ./tryWaitBackground [6446]
+0 ./tryWaitBackground [6446] entering sleep 30
+5 ./tryWaitDriver [6422] sending TERM to ./tryWait [6429]
+5 ./tryWait:cleanup_TERM [6429] (1) Processing signal; sending TERM to ./tryWaitBackground [6446]
+5 ./tryWait:cleanup_TERM [6429] (1) Entering wait after signaling ./tryWaitBackground [6446]
+6 ./tryWaitDriver [6422] sending TERM to ./tryWait [6429] **again**
+6 ./tryWaitDriver [6422] waiting for ./tryWait [6429] to complete
+30 ./tryWaitBackground:handle_TERM [6446] received TERM signal; exiting with rc=7
+30 ./tryWait:cleanup_TERM [6429] (1) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait:cleanup_TERM [6429] (2) Processing signal; sending TERM to ./tryWaitBackground [6446]
+./tryWait: line 20: kill: (6446) - No such process
+30 ./tryWait:cleanup_TERM [6429] (2) Entering wait after signaling ./tryWaitBackground [6446]
+30 ./tryWait:cleanup_TERM [6429] (2) signal processing wait done; waitExit=7, exitCode=7
+30 ./tryWait [6429] exited mainline wait on ./tryWaitBackground [6446]; waitValue=143, termExit=7, exitValue=7
+30 ./tryWait [6429] start/wait loop on ./tryWaitBackground [6446] exited; rc=7
+30 ./tryWait [6429] exiting with rc=7
+30 ./tryWaitDriver [6422] wait for ./tryWait [6429] finished; rc=7
+
+    *** tryWaitDriver rc=7
+
+real	0m30.413s
+user	0m0.007s
+sys	0m0.071s
+----
+# end::_usr_bin_bash-true-true-30[]
+
+
+# tag::_usr_bin_bash-false-false-30[]
+.Running HANDLE_TERM=false USE_SHELL='/usr/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6547] starting ./tryWait
+0 ./tryWaitDriver [6547] pausing 5 seconds before sending TERM to ./tryWait [6554]
+0 ./tryWait started; PID=6554
+0 ./tryWait [6554] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [6554] started ./tryWaitBackground [6571]; rc=0
+0 ./tryWaitBackground started; PID=6571, PPID=6554
+0 ./tryWait [6554] entering mainline wait on ./tryWaitBackground [6571]
+0 ./tryWaitBackground [6571] entering sleep 30
+5 ./tryWaitDriver [6547] sending TERM to ./tryWait [6554]
+5 ./tryWaitDriver [6547] waiting for ./tryWait [6554] to complete
+5 ./tryWait:cleanup_TERM [6554] (1) Processing signal; sending TERM to ./tryWaitBackground [6571]
+5 ./tryWait:cleanup_TERM [6554] (1) Entering wait after signaling ./tryWaitBackground [6571]
+5 ./tryWait:cleanup_TERM [6554] (1) signal processing wait done; waitExit=143, exitCode=143
+5 ./tryWait [6554] exited mainline wait on ./tryWaitBackground [6571]; waitValue=143, termExit=143, exitValue=143
+5 ./tryWait [6554] start/wait loop on ./tryWaitBackground [6571] exited; rc=143
+5 ./tryWait [6554] exiting with rc=143
+5 ./tryWaitDriver [6547] wait for ./tryWait [6554] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m5.309s
+user	0m0.007s
+sys	0m0.063s
+----
+# end::_usr_bin_bash-false-false-30[]
+
+
+# tag::_usr_bin_bash-false-true-30[]
+.Running HANDLE_TERM=false TERM_AGAIN=true USE_SHELL='/usr/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6642] starting ./tryWait
+0 ./tryWaitDriver [6642] pausing 5 seconds before sending TERM to ./tryWait [6649]
+1 ./tryWait started; PID=6649
+1 ./tryWait [6649] entering start/wait loop on ./tryWaitBackground [0]
+1 ./tryWait [6649] started ./tryWaitBackground [6666]; rc=0
+1 ./tryWaitBackground started; PID=6666, PPID=6649
+1 ./tryWait [6649] entering mainline wait on ./tryWaitBackground [6666]
+1 ./tryWaitBackground [6666] entering sleep 30
+6 ./tryWaitDriver [6642] sending TERM to ./tryWait [6649]
+6 ./tryWait:cleanup_TERM [6649] (1) Processing signal; sending TERM to ./tryWaitBackground [6666]
+6 ./tryWait:cleanup_TERM [6649] (1) Entering wait after signaling ./tryWaitBackground [6666]
+6 ./tryWait:cleanup_TERM [6649] (1) signal processing wait done; waitExit=143, exitCode=143
+6 ./tryWait [6649] exited mainline wait on ./tryWaitBackground [6666]; waitValue=143, termExit=143, exitValue=143
+6 ./tryWait [6649] start/wait loop on ./tryWaitBackground [6666] exited; rc=143
+6 ./tryWait [6649] exiting with rc=143
+7 ./tryWaitDriver [6642] sending TERM to ./tryWait [6649] **again**
+./tryWaitDriver: line 58: kill: (6649) - No such process
+7 ./tryWaitDriver [6642] waiting for ./tryWait [6649] to complete
+7 ./tryWaitDriver [6642] wait for ./tryWait [6649] finished; rc=143
+
+    *** tryWaitDriver rc=143
+
+real	0m6.173s
+user	0m0.008s
+sys	0m0.059s
+----
+# end::_usr_bin_bash-false-true-30[]
+
+
+# tag::_usr_bin_bash---4[]
+.Running DELAY=4 USE_SHELL='/usr/bin/bash' ./tryWaitDriver
+[source,text,linenums,options="nowrap"]
+----
+0 ./tryWaitDriver [6742] starting ./tryWait
+0 ./tryWaitDriver [6742] pausing 5 seconds before sending TERM to ./tryWait [6749]
+0 ./tryWait started; PID=6749
+0 ./tryWait [6749] entering start/wait loop on ./tryWaitBackground [0]
+0 ./tryWait [6749] started ./tryWaitBackground [6766]; rc=0
+0 ./tryWaitBackground started; PID=6766, PPID=6749
+0 ./tryWait [6749] entering mainline wait on ./tryWaitBackground [6766]
+0 ./tryWaitBackground [6766] entering sleep 4
+4 ./tryWaitBackground [6766] exited sleep 4; sleep rc=0
+4 ./tryWaitBackground [6766] exiting with rc=2
+4 ./tryWait [6749] exited mainline wait on ./tryWaitBackground [6766]; waitValue=2, termExit=, exitValue=2
+4 ./tryWait [6749] start/wait loop on ./tryWaitBackground [6766] exited; rc=2
+4 ./tryWait [6749] exiting with rc=2
+5 ./tryWaitDriver [6742] waiting for ./tryWait [6749] to complete
+5 ./tryWaitDriver [6742] wait for ./tryWait [6749] finished; rc=2
+
+    *** tryWaitDriver rc=2
+
+real	0m5.134s
+user	0m0.008s
+sys	0m0.052s
+----
+# end::_usr_bin_bash---4[]

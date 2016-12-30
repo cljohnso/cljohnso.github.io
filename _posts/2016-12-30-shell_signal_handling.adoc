@@ -1,0 +1,725 @@
+= Shell Signal Handling =
+:showtitle:
+:page-navtitle: Shell Signal Handling
+:page-excerpt: Describes an experiment conducted to determine how to create a _portable_ *NIX init script.
+:page-root: ../../../
+:scriptSource: ../artifacts/shellSignals
+:dataSource: ../artifacts/shellSignals
+:includeDir: {site-baseurl}/artifacts/shellSignals
+:source-highlighter: pygments
+:toc: preamble
+
+The shell `wait` command has some language and environmental quirks some are likely to find surprising.
+
+== The Problem ==
+
+A fairly common practice for https://en.wikipedia.org/wiki/Unix-like[*NIX] server applications is for
+a shell (_init_) script to be used to start a background process -- the application server.  In some cases,
+the shell script remains active, waiting for the background process to terminate, at which time the script
+determines whether or not the background process should be restarted.  Since the shell script remains active,
+it should propagate signals, like `SIGTERM` or `SIGINT` to the background process it started.
+
+For best portability, the script is written in a subset of the shell language supported by `sh` and
+executed by `/bin/sh`.  And, to propagate signals, coding generally involves the use of the `wait`,
+`trap`, and `kill` commands built into the shell.
+
+But all `sh` implementations are not created equal ... even when using the level of shell language
+supported by `sh`, differences in behavior make writing a truly portable shell script difficult.  In
+this application, the differences are a particular challenge because the behavior of the `wait`
+and `trap` commands vary.
+
+****
+https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Signal-Handling.html[Autoconf _Signal Handling_^]
+has a good discussion of the difficulties with normalizing shell signal handling across shell implementations and
+platforms.
+****
+
+The behavior issues were discovered while trying determine why a controlling shell script was failing
+to observe the exit code of a child process it started.  The controlling shell
+script was coded to start a child process and await its termination (`wait`).  The expectation was the
+`wait` would reveal the termination code of the child process.
+The controlling script also
+included code to catch (`trap`) a `TERM` signal and forward (`kill`) the `TERM` signal to the child.
+Unfortunately, the `wait` command being used did **not** reliably reflect the termination of the child
+process in the presence of the `TERM` signal.
+
+While diagnosing the `wait` issue, another behavioral difference among shell implementations was noticed
+-- the timing of handling a signal raised in the script.  Some shell implementations wait until the current
+shell command is complete; others interrupt the current shell command.
+
+The challenge is to find a way of coding a single controlling shell script to:
+
+. Accurately reflect the background process exit code,
+. Properly propagate the desired signals, and
+. Exit only when the background process terminates.
+
+
+== The Conclusions ==
+
+The experimental results show that one _can_ write a single controlling shell script to accomplish the goals
+mentioned above.  The discussion of the experiment follows these conclusions.
+
+. The source of the variance in _when_ a signal is handled was determined to be the implementation behind
+  the system-dependent binding for `/bin/sh`.  For example, `/bin/sh` is `bash`
+  on most Linux systems, is `dash` on Unbuntu, and is `ksh` on current Solaris systems.
++
+When the shell bound to `/bin/sh` follows the Posix model, `wait` is interrupted on receipt of the `TERM` signal
+  and the `wait` exit code reflects the signal used to interrupt it.  Unfortunately, if the waited upon
+  process lacks a signal handler, the child exits with the same termination code so one can't tell if the `wait`
+  code reflects its own interruption or the termination code of the child process.  On top of that, shells lacking
+  Posix support (like `ksh`) _can_ continue waiting until the awaited process terminated -- the `wait` exit code
+  does reflect the child process termination code.
+
+. In addition to the shell implementation difference, the moment a shell script recognizes a signal depends on
+  whether or not the script has a handler for that signal.  Without a handler for the signal, a shell
+  command is interrupted.  With a handler for the signal, recognition of the signal by a shell may wait until
+  the currently executing command is complete.
+
+. Like initial signal recognition, the moment a _second_ signal is recognized and processed by the signal handler is
+   shell implementation dependent.  Some shells wait until the signal handler completes processing the first signal
+   before recognizing the second; other implementations take advantage of the `wait` in the signal handler to
+   recognize the second signal while the `wait` is active.
+
+. The `wait` on the child process following propagation of a `TERM` signal by the controlling shell script must be
+  in the controlling script's `TERM` signal handler.  The `wait` in the mainline code is subject to interruption by
+  signals, including the `TERM` signal being propagated, and, in the presence of a signal, will **not** reliably
+  reflect the termination code of the child process.
+
+. The Korn Shell behavior differs significantly between the Mac OS X platform and the Solaris platform.
+   * On Mac OS X, the `TERM` signal presented to the background process is recognized immediately (even
+     during a `sleep` command).  In the experiment using a second `TERM` signal, the second signal is
+     never sent because the background and controlling processes complete _before_ the second signal is sent.
+     In this case, the controller's `TERM` signal handler observes the background process termination code
+     correctly.
+   * On Solaris, the `TERM` signal presented to the background process is recognized only after completion
+     of the background's `sleep` command.  In the experiment with the second `TERM` signal, the second signal
+     interrupts the controller's `TERM` signal handler `wait` and does **not** invoke the signal handler for
+     the second signal.  In this case, the controller's `TERM` signal handler does **not** observe the
+     background process termination code.
+
+. If you need to determine if a _signal_ caused termination of the background process, extra work will be
+  needed to work out the signal number -- the process termination code for a signal termination as reported
+  by `wait` varies with the shell implementation.  For example, `bash`-based shells use 128+_signum_;
+  `ksh`-based shells use 256+_signum_.
+
+With care, a controlling script, with signal handing addressing most signaling needs, can be done in a portable
+way using the default `/bin/sh` implementation on each target *NIX system.
+
+
+== The Experiment ==
+
+The implementation goal is to develop a shell script used to start a background Java process and exhibit
+consistent behavior among deployment systems in the presence of process signals.
+Using shell script implementations available on each target system (Mac OS X,
+Solaris, Linux), an experiment was run in an attempt to develop a single script that would provide the
+desired functionality.
+
+=== Test Scripts ===
+
+Three shell scripts -- `tryWaitDriver`, `tryWait`, and `tryWaitBackground` -- were used in testing the
+behavior of signal handling in conjunction with `wait`.  These scripts are shown and described in this
+section.
+
+Rather than wrestle with a Java process, the "failure" conditions are replicated using scripts alone.
+
+The scripts shown here are the ultimate, functional implementations showing the result of iterations over
+problematic versions.
+
+The initial version of the `tryWait` script -- the _controlling_ script -- omitted the `wait` command in
+the `TERM` signal handler.  The major problem with this version was the inability to reliably determine if
+the `wait` exit code reflected the background process termination code or the exit code for an interrupted
+`wait` command.  Subsequent versions attempted to address this issue in various ways but, without some clear
+tie between handling the `TERM` signal and the `wait` command used by the controlling script to obtain the
+background process termination code, there was always question about what the `wait` exit code represented.
+
+Using a `wait` command in the `TERM` signal handler of the controlling script gets rid of _most_ of the
+uncertainty regarding the meaning of the exit code of the `wait` command used to wait for background process
+completion. Opportunity for confusion still exists where the controlling script process is sent a _second_
+`TERM` signal (which might interrupt the `wait` in the `TERM` signal handler) -- but this would be the
+subject of another experiment.
+
+An additional script, not shown, was used to drive the experiment on each target platform.
+
+==== `tryWaitDriver` ====
+
+This script is used to "drive" a test scenario.  This script starts `tryWait`, pauses for 5 seconds,
+sends a `TERM` signal to the `tryWait` process,
+awaits completion of the `tryWait` process, the reports the `tryWait` return code.  Since `tryWaitDriver`
+is not expected to be receiving signals (such as `TERM`), no special `wait` handling is used.  The
+`tryWaitDriver` may optionally send a second `TERM` signal to the `tryWait` process to test behavior in
+the presence of multiple signals.
+
+When running this script using a Posix-compliant shell, one will observe a delay between `tryWait` propagating
+the `TERM` signal and `tryWaitBackground` actually recognizing the signal and terminating.  This is due to the
+definition of signal handling in Posix --
+http://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_11[Signals and Error Handling]
+"_When a signal for which a trap has been set is received while the shell is waiting for the completion of a
+utility executing a foreground command, the trap associated with that signal shall not be executed until after
+the foreground command has completed._"
+
+[source,bash,linenums,options="nowrap"]
+----
+include::{scriptSource}/tryWaitDriver[]
+----
+<1> Starts `tryWait` using the shell specified by `USE_SHELL`.
+<2> `kill -0` is used to determine if the target process is active.  On Posix-compliant systems, the
+  dependent behavior is defined in the specification for the
+  http://pubs.opengroup.org/onlinepubs/9699919799/functions/kill.html[kill()] function --
+  "_If sig is 0 (the null signal), error checking is performed but no signal is actually sent. The null signal
+  can be used to check the validity of pid._"
+<3> Optionally sends a second `TERM` signal one second after sending the first.
+
+==== `tryWait` ====
+
+The `tryWait` script is the primary target of the experiment -- it is the model for the _init_ script used
+to start and "manage" a background, server process.  The `tryWait` script starts a child process and awaits
+its completion.  It includes a `TERM` signal handler that propagates the signal to the child process.  One
+goal of `tryWait` is to terminate only when the child process terminates and, for purposes of the experiment,
+exit with the termination code of the child process.
+
+The version of the script shown here is the end result of the experimentation.  In the tested script
+environments, `tryWait`:
+
+1. Does not exit until the sub-process terminates.
+2. Returns the sub-process termination code as its return code _within limitations_.
+
+[source,bash,linenums,options="nowrap"]
+----
+include::{scriptSource}/tryWait[]
+----
+<1> The `TERM` signal handler for `tryWait`.  This function gets control when the `tryWait` process
+    is hit with a `kill -TERM`.
+<2> Propagates the `TERM` signal to the child process.
+<3> Waits, within the `TERM` handler, for the child process to terminate.  Using this
+    position helps, but does not guarantee, that the child process is ended when the `wait` ends.
+    The redirection of `stderr` to `/dev/null` can be used to prevent the error message indicating the
+    `backgroundWait` process was terminated from being emitted from `ksh` in the `HANDLE_TERM=false`
+    test case.
+<4> Captures the child process termination code.  _Absent another signal to `tryWait`, this will be
+    the actual child process termination code._
+<5> Starts `tryWaitBackground` as a background child process using the specified shell.
+<6> This loop repeats until the child process no longer exists.  If the child process terminates
+    normally, the process will exist until the `wait` at (7) ends; if the child process is
+    terminated by the `kill -TERM` at (2), the process exists until the `wait` at (3) ends.
+<7> Waits for child process termination.  In a Posix-compliant environment, this `wait` is
+    interrupted by the `TERM` signal processed by the `TERM` signal handler at (1).  In this
+    case, the exit code of the `wait` command reflects the `wait` interruption and **not**
+    the child process termination code.  The interruption is not recognized until the `TERM`
+    signal handler completes so this `wait` does not end until the `wait` in the `TERM` signal
+    handler completes (and the signal handler exits); in this case, `termExit` is set to the
+    real child process termination code.
+<8> A `while $start` loop shows how a controlling script might be coded to so it could restart the child process
+    on termination.  This loop is not really used in this experiment.
+
+==== `tryWaitBackground` ====
+
+The `tryWaitBackground` script is used to simulate a Java process started by a controlling script (which
+is modeled by `tryWait`).
+
+[source,bash,linenums,options="nowrap"]
+----
+include::{scriptSource}/tryWaitBackground[]
+----
+<1> Setting `DELAY` shorter than the 5 second pause used in `tryWaitDriver` for the `TERM` signal
+    permits observation of "normal" termination behavior.  Use `DELAY=4 ./tryWaitDriver` to observe.
+<2> Although not of interest to the original problem behaviors, observing the behavior of the
+    script suite without a `TERM` signal handler in the child process was a curiosity -- so
+    the `TERM` signal handler here can be disabled using `HANDLE_TERM=false`.
+<3> When a `TERM` signal is raised, the child process simply exits with a return code of 7.
+    The defined behavior for shell signal recognition varies.  For Posix-compliant shells, the
+    signal is supposed to be recognized only when the current "foreground" command is complete.  In
+    the case of this script for a Posix-compliant shell, the `sleep $DELAY` command must complete before
+    the `TERM` signal handler is run.
+
+=== Experiment Flow ===
+
+The following diagram shows the signal and high level processing flow among the scripts described above.
+
+[plantuml, script-flow, png]
+----
+@startuml
+hide footbox
+
+participant tryWaitDriver
+box "tryWait\n<<Controller Script>>" #LightBlue
+participant "Main" as tryWait
+participant "TERM\nsignal handler" as tryWait.cleanup_TERM
+end box
+box "tryWaitBackground\n<<Background Process>>" #LightCoral
+participant "Main" as tryWaitBackground
+participant "TERM\nsignal handler" as tryWaitBackground.handle_TERM
+end box
+boundary OS
+
+[o-> tryWaitDriver : exec
+activate tryWaitDriver
+
+tryWaitDriver -> OS : exec tryWait
+OS -> tryWait : exec
+activate tryWait
+tryWaitDriver <- OS : tryWait PID
+
+tryWait -> OS : exec tryWaitBackground
+OS -> tryWaitBackground : exec
+activate tryWaitBackground
+tryWait <- OS : tryWaitBackground PID
+
+tryWait -> OS : wait
+activate tryWait #Salmon
+tryWaitBackground -> tryWaitBackground : sleep $DELAY
+hnote left : 1b
+tryWaitDriver -> tryWaitDriver : sleep 5
+...
+tryWaitDriver -> OS : kill -TERM
+tryWaitDriver <- OS
+tryWaitDriver -> OS : wait
+OS --> tryWait.cleanup_TERM : << TERM >>
+activate tryWait.cleanup_TERM #blue
+tryWait.cleanup_TERM -> OS : kill -TERM
+tryWait.cleanup_TERM <- OS
+tryWait.cleanup_TERM -> OS : wait
+activate tryWait.cleanup_TERM #salmon
+...
+OS --> tryWaitBackground.handle_TERM : << TERM >>
+hnote left : 1a
+activate tryWaitBackground.handle_TERM #blue
+tryWaitBackground.handle_TERM -> OS : exit 7
+deactivate tryWaitBackground.handle_TERM
+deactivate tryWaitBackground
+...
+tryWait.cleanup_TERM <- OS : wait ?
+hnote left : 2
+destroy tryWaitBackground
+deactivate tryWait.cleanup_TERM
+deactivate tryWait.cleanup_TERM
+...
+tryWait <- OS : wait ?
+hnote left : 3
+deactivate tryWait
+tryWait -> OS : exit $RC
+deactivate tryWait
+tryWaitDriver <- OS : wait $RC
+destroy tryWait
+[x<- tryWaitDriver : exit
+deactivate tryWaitDriver
+
+@enduml
+----
+. The moment the `TERM` signal is processed by the `tryWaitBackground` `TERM` signal handler (1a) is
+  shell dependent.  The shells examined either wait for the `sleep` (1b) to complete or process
+  the signal while the `sleep` is active.
+
+. The exit code of the `wait` in the `tryWait` `TERM` signal handler can be:
++
+--
+  * the exit code of the `tryWaitBackground` process
+  * an exit code related to the `wait` being interrupted by a signal
+--
+If interrupted by a signal, the `wait` exit code depends on the shell implementation.
+
+. The exit code of the `wait` in the `tryWait` mainline can be:
++
+--
+  * the exit code of the `tryWaitBackground` process in the absence of a `TERM` signal
+    (normal exit)
+  * the exit code of the `tryWaitBackground` process in the presence of two (2) `TERM` signals
+    _with some shells_
+  * an exit code related to the `wait` being interrupted by a signal
+--
+As with the `wait` in the signal handler, exit code of `wait` when interrupted by a signal
+is shell implementation dependent.
+
+
+=== Running the Experiment ===
+
+For each tested shell in each environment, the `tryWaitDriver` was run with the following option sets
+shown in the table below.
+
+`HANDLE_TERM` :: Indicates whether or not `tryWaitBackground` defined a signal handler for `TERM`; `true` is the
+        default
+`TERM_AGAIN` :: Indicates if `tryWaitDriver` is to simulate an _impatient_ user sending the `TERM` signal to the
+        `tryWait` process again one second after the `TERM` signal was originally sent.  (The first `TERM`
+        signal is send 5 seconds after starting the `tryWait` process.)
+`DELAY` :: Indicates the number of seconds `tryWaitBackground` will sleep before exiting; the default is 30 seconds.
+        `DELAY=4` is used to have the `tryWaitBackground` process exit _before_ the first `TERM` signal is sent
+        by `tryWait`.
+
+[cols="3*", options="header", width="70%"]
+|===
+^| `HANDLE_TERM` ^| `TERM_AGAIN` ^| `DELAY`
+| true (default) | false (default) | 30 (default)
+| true (default) | true  | 30 (default)
+| false | false (default) | 30 (default)
+| false | true  | 30 (default)
+| n/a   | n/a   | 4
+|===
+
+<<<
+=== Experiment Output ===
+
+==== Summary ====
+
+The following table summarizes the results of the experiments the output of which is shown in the following
+section.
+
+mainline `wait` exit code:: exit code of the `wait` command used in `tryWait` to await the completion of the
+  `tryWaitBackground` process _in the main wait loop_.  Ideally, this code reflects the termination code of the
+  `tryWaitBackground` process but, in the presence of a signal, the exit code is shown to reflect an
+  interruption of `tryWait` and not the `tryWaitBackground` process termination code.
+signal handler `wait` exit code:: exit code of the `wait` command used in the `tryWait` signal handler to await
+  the completion of the `tryWaitBackground` process _after propagation of a `TERM` signal_.  With any luck, this
+  code accurately reflects the termination code of the `tryWaitBackground` process.
+`TERM` interrupts sleep:: indicates whether or not receipt in the `tryWaitBackground` process of the
+  `TERM` signal sent from the `tryWait` process interrupts (terminates) the `sleep` command used in
+  the `tryWaitBackground` script.
+
+[cols="2,1,1,1,1,1,1"]
+|===
+
+7+h| Mac OS X
+
+.2+^.^h| Shell
+3+^h| Options
+.2+^.^h| mainline +
+`wait` +
+exit code
+.2+^.^h| signal handler +
+`wait` +
+exit code ^(2)^
+.2+^.^h| `TERM` +
+interrupts +
+`sleep`
+
+^h| `HANDLE_TERM` ^h| `TERM_AGAIN` ^h| `DELAY`
+
+| `/bin/sh` | true | false | 30 | 143 | 7 | No
+| `/bin/sh` | true | true | 30 | 143 | 7 / 127 ^(7a)^ | No
+| `/bin/sh` | false | false | 30 | 143 | 143 | (1)
+| `/bin/sh` | false | true | 30 | 143 | 143 / -- | (1)
+| `/bin/sh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/bin/bash` | true | false | 30 | 143 | 7 | No
+| `/bin/bash` | true | true | 30 | 143 | 7 / 7 ^(7a)^ | No
+| `/bin/bash` | false | false | 30 | 143 | 143 | (1)
+| `/bin/bash` | false | true | 30 | 143 | 143 / -- | (1)
+| `/bin/bash` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/bin/ksh` | true | false | 30 | 1 | 7 | Yes
+| `/bin/ksh` | true | true | 30 | 1 | 7 / -- | Yes
+| `/bin/ksh` | false | false | 30 | 1 | 271 | (1)
+| `/bin/ksh` | false | true | 30 | 1 | 271 / -- | (1)
+| `/bin/ksh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/usr/local/bin/dash` | true | false | 30 | 143 | 7 | No
+| `/usr/local/bin/dash` | true | true | 30 | 143 | 7 / 143 ^(7b)^ | No
+| `/usr/local/bin/dash` | false | false | 30 | 143 | 143 | (1)
+| `/usr/local/bin/dash` | false | true | 30 | 143 | 143 / -- | (1)
+| `/usr/local/bin/dash` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/opt/heirloom-sh/bin/sh` | true | false | 30 | 0 | 7 | No
+| `/opt/heirloom-sh/bin/sh` | true | false | 30 | 0 | 7 / 0 ^(7b)^ | No
+| `/opt/heirloom-sh/bin/sh` | false | false | 30 | 0 | 208 ^(3)^ | No ^(4)^
+| `/opt/heirloom-sh/bin/sh` | false | true | 30 | 0 | 208 ^(3)^ / 0 | No ^(4)^
+| `/opt/heirloom-sh/bin/sh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+7+h| Solaris 11
+
+.2+^.^h| Shell
+3+^h| Options
+.2+^.^h| mainline +
+`wait` +
+exit code
+.2+^.^h| signal handler +
+`wait` +
+exit code ^(2)^
+.2+^.^h| `TERM` +
+interrupts +
+`sleep`
+
+^h| `HANDLE_TERM` ^h| `TERM_AGAIN` ^h| `DELAY`
+
+| `/bin/sh` | true | false | 30 | 1 | 7 | No
+| `/bin/sh` | true | true | 30 | 1 / 7 ^(5)^ | 1 / -- ^(7c)^ | No
+| `/bin/sh` | false | false | 30 | 1 | 271 | (1)
+| `/bin/sh` | false | true | 30 | 1 | 271 / -- | (1)
+| `/bin/sh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/usr/sunos/bin/sh` | true | false | 30 | 0 | 7 | No
+| `/usr/sunos/bin/sh` | true | true | 30 | 0 | 7 / 0 ^(7b)^ | No
+| `/usr/sunos/bin/sh` | false | false | 30 | 0 | 208 ^(3)^ | No ^(4)^
+| `/usr/sunos/bin/sh` | false | true | 30 | 0 | 208 ^(3)^ / 0 | No ^(4)^
+| `/usr/sunos/bin/sh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/bin/bash` | true | false | 30 | 143 | 7 | No
+| `/bin/bash` | true | true | 30 | 143 | 7 / 7 ^(7a)^ | No
+| `/bin/bash` | false | false | 30 | 143 | 143 | (1)
+| `/bin/bash` | false | true | 30 | 143 | 143 / -- | (1)
+| `/bin/bash` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/bin/ksh` | true | false | 30 | 1 | 7 | No ^(6)^
+| `/bin/ksh` | true | true | 30 | 1 / 7 ^(5)^ | 1 / -- ^(7c)^ | No ^(6)^
+| `/bin/ksh` | false | false | 30 | 1 | 271 | (1)
+| `/bin/ksh` | false | true | 30 | 1 | 271 / -- | (1)
+| `/bin/ksh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/bin/ksh93` | true | false | 30 | 1 | 7 | No ^(6)^
+| `/bin/ksh93` | true | true | 30 | 1 / 7 ^(5)^ | 1 / -- ^(7d)^ | No ^(6)^
+| `/bin/ksh93` | false | false | 30 | 1 | 271 | (1)
+| `/bin/ksh93` | false | true | 30 | 1 | 271 / -- | (1)
+| `/bin/ksh93` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/usr/xpg4/bin/sh` | true | false | 30 | 0 | 7 | No
+| `/usr/xpg4/bin/sh` | true | true | 30 | 0 | 1 / -- ^(7c)^ | No
+| `/usr/xpg4/bin/sh` | false | false | 30 | 0 | 143 | (1)
+| `/usr/xpg4/bin/sh` | false | true | 30 | 0 | 143 / -- | (1)
+| `/usr/xpg4/bin/sh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+7+h| Red Hat Linux 7.2
+
+.2+^.^h| Shell
+3+^h| Options
+.2+^.^h| mainline +
+`wait` +
+exit code
+.2+^.^h| signal handler +
+`wait` +
+exit code ^(2)^
+.2+^.^h| `TERM` +
+interrupts +
+`sleep`
+
+^h| `HANDLE_TERM` ^h| `TERM_AGAIN` ^h| `DELAY`
+
+| `/bin/sh` | true | false | 30 | 143 | 7 | No
+| `/bin/sh` | true | true | 30 | 143 | 7 / 127 ^(7a)^ | No
+| `/bin/sh` | false | false | 30 | 143 | 143 | (1)
+| `/bin/sh` | false | true | 30 | 143 | 143 / -- | (1)
+| `/bin/sh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/bin/bash` | true | false | 30 | 143 | 7 | No
+| `/bin/bash` | true | true | 30 | 143 | 7 / 7 ^(7a)^ | No
+| `/bin/bash` | false | false | 30 | 143 | 143 | (1)
+| `/bin/bash` | false | true | 30 | 143 | 143 / -- | (1)
+| `/bin/bash` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/usr/bin/sh` | true | false | 30 | 143 | 7 | No
+| `/usr/bin/sh` | true | true | 30 | 143 | 7 / 127 ^(7a)^ | No
+| `/usr/bin/sh` | false | false | 30 | 143 | 143 | (1)
+| `/usr/bin/sh` | false | true | 30 | 143 | 143 / -- | (1)
+| `/usr/bin/sh` | true | false | 4 | 2 | n/a | n/a
+
+7+|
+| `/usr/bin/bash` | true | false | 30 | 143 | 7 | No
+| `/usr/bin/bash` | true | true | 30 | 143 | 7 / 7 ^(7a)^ | No
+| `/usr/bin/bash` | false | false | 30 | 143 | 143 | (1)
+| `/usr/bin/bash` | false | true | 30 | 143 | 143 / -- | (1)
+| `/usr/bin/bash` | true | false | 4 | 2 | n/a | n/a
+
+|===
+
+[horizontal]
+1:: The `tryWaitBackground` process is killed.
+2:: For `TERM_AGAIN=true` runs, the `wait` following the _first_ `TERM` signal exits with the first code shown;
+    the `wait` following the _second_ `TERM` exits with second code shown.
+3:: This unusual return code _should_ have been 143 -- the discrepancy _may_ be explained by
+    http://unix.derkeiler.com/Newsgroups/comp.unix.shell/2008-05/msg00458.html[_Bourne shell exit code for TERM_].
+    (`SIGFAIL` is 2000~10~ which is 7d0~16~; exit codes are generally 8-bit values so 7d0 becomes d0~16~ = 208~10~.)
+4:: Even without a `TERM` signal handler, neither `/opt/heirloom-sh/bin/sh` nor `/usr/sunos/bin/sh` interrupt
+    the `sleep` command in `tryWaitBackground` even though the process was ultimately killed.
+5:: Using Solaris `/bin/sh`, `/bin/ksh`, or `/bin/ksh93` with `TERM_AGAIN=true`, the second `TERM` signal
+    interrupts both the `wait` in the signal handler _and_ in the `tryWait` mainline wait loop _without_
+    redriving the signal handler for the second signal. As a consequence, the signal handler `wait` exit code
+    does not reflect the `tryWaitBackground` termination code but the _second_ `wait` in the `tryWait` mainline
+    wait loop _does_. Unfortunately, the script is not coded to handle this properly -- this is left as a exercise
+    for the reader.  One possibility is to use the exit code from the second mainline `wait` if, and only if,
+    there is one; otherwise, use the exit code from the signal handler `wait`.
+6:: Unlike on Mac OS X, `ksh` on Solaris _did not_ interrupt the `sleep` on receipt of the `TERM` signal.
+7:: Second signals (`TERM_AGAIN=true`) are handled in a variety of ways:
+  a. Processed sequentially - handling for the first signal is completed before the handling of the second
+     signal is started.
+  b. Reentrant - another call is made to the signal handler for the second signal while the first is being
+     handled, e.g. two waits are active at once.  It is unclear which signal completes first.
+  c. Ignored - the signal handler is not called for the second signal.
+  d. Replaced - like the reentrant handling, the signal handler is called for the second signal while
+     the first is active; however, only _one_ `wait` is completed -- handling for the first signal
+     appears abandoned.
+
+<<<
+==== Mac OS X ====
+
+The following are the components used in the MAC OS X experiment environment:
+
+* Mac OS X 10.9.5
+* Heirloom Bourne Shell (heirloom-sh) 1.63
+  http://heirloom.sourceforge.net/sh/sh.1.html[`sh` man page]
++
+This is a port of `sh` from OpenSolaris and, according to the documentation, "implements
+  the SVR4/SVID3 level of the shell." (http://heirloom.sourceforge.net/sh.html)
+* Debian Almquist Shell (dash) 0.5.8 (installed using Brew)
+  http://man7.org/linux/man-pages/man1/dash.1.html[`dash` man page]
++
+This is a "faster" version of Bash providing 'sh' services on current Unbuntu systems.
+  (https://wiki.ubuntu.com/DashAsBinSh[DashAsBinSh])
+* GNU Bourne-Again Shell (bash) 3.2.53(1) (installed with OS X)
+  https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man1/bash.1.html[`bash` man page]
+* GNU Bourne-Again Shell (bash) 3.2.53(1) (run as `sh`, installed with OS X)
+  https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man1/sh.1.html[`sh` man page]
+* Korn Shell (ksh) Version JM 93u 2011-02-08 (installed with OS X)
+  https://developer.apple.com/legacy/library/documentation/Darwin/Reference/ManPages/man1/ksh.1.html[`ksh` man page]
+
+===== Annotated Results =====
+
+The following shows only the experiments for which the output is annotated.  The full results may be
+viewed at link:{includeDir}/mac_results.txt[Mac results^].
+
+[[Mac_bin-sh_term_not-again]]
+include::{dataSource}/mac_results.txt[tag=_bin_sh-true-false-30]
+
+. (line #14) Note that the `TERM` signal is **not** recognized until the `sleep` completes -- about 25
+    seconds after the `TERM` signal is sent to `tryWaitBackground`.
+. (line #15) The `wait` command in the `tryWait` `TERM` signal handler observes the `tryWaitBackground`
+    exit code of 7.
+. (line #16) The `wait` command in the `tryWait` wait loop ended as the result of the `TERM` signal from
+    `tryWaitDriver`; it does **not** reflect the exit status of the `tryWaitBackground` process.
+    Instead, it reflects the interruption status of the `wait` command itself with an exit code
+    of 143 (128 + 15 [`TERM` signal]).  The exit code set in the `TERM` signal handler (`termExit`)
+    is used to set the exit code for `tryWait`.
+
+[[Mac_bin-sh,no-term_not-again]]
+include::{dataSource}/mac_results.txt[tag=_bin_sh-false-false-30]
+
+. (line #14) Without a `TERM` signal handler, `tryWaitBackground` is terminated immediately on receipt of
+    the `TERM` signal; the `wait` command (in the `tryWait` `TERM` signal handler) reflects the
+    `tryWaitBackground` termination code -- 128 (ended by signal) + 15 (`TERM` signal) = 143.
+. (line #15) The `wait` command in the `tryWait` wait loop ended as the result of the `TERM` signal from
+    `tryWaitDriver`.  This exit code is indistinguishable from the actual `tryWaitBackground`
+    termination code.
+
+[[Mac_bin-sh_delay]]
+include::{dataSource}/mac_results.txt[tag=_bin_sh---4]
+
+. (line #9) Using a "short" delay in `tryWaitBackground" allows that script to complete "normally".
+. (line #11) Since `tryWaitBackground` terminated normally, the `wait` command in the `tryWait`
+    wait loop observes termination of `tryWaitBackground` and obtains its true exit code.
+. (line #15) Since `tryWait` completed before the `tryWaitDriver` pause ended, no `TERM` signal was
+    sent to `tryWait`.  The `wait` here picked up the `tryWait` exit code.
+
+include::{dataSource}/mac_results.txt[tag=_bin_ksh-true-false-30]
+
+. (line #14) The documentation for `ksh` is says "[t]raps are not processed while a job is waiting for a
+    foreground process."  It says nothing about a signal interrupting an ongoing command (like
+    `sleep`).  From the behavior observed during the test, the ongoing command (well, `sleep` at
+    least) is interrupted then the `TERM` signal handler is executed.
+
+include::{dataSource}/mac_results.txt[tag=_bin_ksh-false-false-30]
+
+. (line #15) Without a `TERM` signal handler, `tryWaitBackground` is terminated immediately on receipt of
+    the `TERM` signal; the `wait` command (in the `tryWait` `TERM` signal handler) reflects the
+    `tryWaitBackground` termination code -- for `ksh` this is 256 (ended by signal) + 15 (`TERM` signal) = 271.
+. (line #20) Exit codes are, in general 8-bit values.  In this case `ksh` exits with a _16-bit_ value --
+  271~10~ = 10F~16~.  Truncated to 8-bits, this is 0F~16~ = 15~10~.
+
+include::{dataSource}/mac_results.txt[tag=_opt_heirloom-sh_bin_sh-true-false-30]
+
+. (line #30) The `wait` command in the `tryWait` wait loop exits with a zero termination code.  This is the
+    documented behavior when waiting on a process that is not a child process or not an active process
+    -- in this case, the `tryWaitBackground` process is retired by the `wait` command in the `tryWait`
+    `TERM` signal handler.  This is different than the exit code used in Posix-compliant shells.
+
+
+include::{dataSource}/mac_results.txt[tag=_opt_heirloom-sh_bin_sh-false-false-30]
+
+. (line #14) Without a `TERM` signal handler, the `tryWaitBackground` process running under heirloom-sh exits
+    with an unexpected termination code.  As described in
+    http://docs.oracle.com/cd/E53394_01/html/E54763/sh-1.html[Solaris `sh` documentation] and
+    http://docs.oracle.com/cd/E53394_01/html/E54772/signal.h-3head.html#REFMAN3Fsignal.h-3head[Solaris `signal.h` documentation],
+    it should have been (octal)200 + signal or 143. The discrepancy _may_ be explained by
+    http://unix.derkeiler.com/Newsgroups/comp.unix.shell/2008-05/msg00458.html[_Bourne shell exit code for TERM_].
+    (`SIGFAIL` is 2000~10~ which is 7d0~16~; exit codes are generally 8-bit values so 7d0 becomes d0~16~ = 208~10~.)
+
+
+<<<
+==== Solaris ====
+
+The following are the components used in the Solaris experiment environment:
+
+* Oracle Solaris 5.11 (i386)  pkg:/system/kernel@0.5.11-0.175.2.0.0.42.2
+* Bourne Shell (`/usr/sunos/bin/sh`) pkg:/system/core-os@0.5.11-0.175.2.0.0.42.2
+  http://docs.oracle.com/cd/E53394_01/html/E54763/sh-1.html[`sh` man page]
+* Bourne Shell (`/usr/xpg4/bin/sh`) pkg:/system/core-os@0.5.11-0.175.2.0.0.42.2
+  http://docs.oracle.com/cd/E53394_01/html/E54763/sh-1.html[`sh` man page]
+* Korn Shell Version JM 93u 2011-02-08 (run as `sh`) pkg:/shell/ksh93@93.21.0.20110208-0.175.1.0.0.21
+  http://docs.oracle.com/cd/E53394_01/html/E54763/ksh93-1.html[`ksh93` man page]
+* Korn Shell Version JM 93u 2011-02-08 (run as `ksh`) pkg:/shell/ksh93@93.21.0.20110208-0.175.1.0.0.21
+  http://docs.oracle.com/cd/E53394_01/html/E54763/ksh-1.html[`ksh` man page]
+* Korn Shell Version JM 93u 2011-02-08 (run as `ksh93`) pkg:/shell/ksh93@93.21.0.20110208-0.175.1.0.0.21
+  http://docs.oracle.com/cd/E53394_01/html/E54763/ksh93-1.html[`ksh93` man page]
+* GNU Bash 4.1.11(2)-release pkg:/shell/bash@4.1.11-0.175.2.0.0.42.1
+  http://docs.oracle.com/cd/E53394_01/html/E54763/bash-1.html[`bash` man page]
+
+The `/usr/sunos/bin/sh` is earmarked in the documentation for potential removal.  The Solaris man page for
+`sh` indicates that `/usr/bin/sh` is a link to `ksh93`.
+
+===== Annotated Results =====
+
+The following shows only the experiments for which the output is annotated.  The full results may be
+viewed at link:{includeDir}/solaris_results.txt[Solaris results^].
+
+include::{dataSource}/solaris_results.txt[tag=_bin_sh-true-false-30]
+
+. (line #14) Note the `TERM` signal is **not** recognized until the `sleep` completes -- about 25 seconds
+    after the `TERM` signal is sent to `tryWaitBackground`.
+. (line #15) The `wait` command in the `tryWait` `TERM` signal handler observes the `tryWaitBackground`
+    exit code of 7.
+. (line #16) The `wait` command in the `tryWait` wait loop ended as the result of the `TERM` signal from
+    `tryWaitDriver`; it does **not** reflect the exit status of the `tryWaitBackground` process.
+     Instead, it reflects the interruption status of the `wait` command itself with an exit code
+     of 1.  (According to the ksh/ksh93 documentation, `wait` _should_ have exited with a code of
+     256 + 15, or 271, indicating abnormal termination by `TERM` signal _or_ exited with a code of
+     zero.  The observed behavior is **not** consistent with the documentation.)
+     The exit code set in the `TERM` signal handler (`termExit`) is used to set the exit
+     code for `tryWait`.
+
+include::{dataSource}/solaris_results.txt[tag=_bin_sh-true-true-30]
+
+. (line #14) The second `TERM` signal interrupted the `TERM` signal handler `wait` command; the `TERM` signal handler
+    was **not** re-driven to handle the second `TERM` signal.
+. (line #16) The `wait` command in the `tryWait` wait loop ended as a result of one of the two `TERM` signals from
+    `tryWaitDriver`.
+. (line #18) The wait loop is repeated because the `tryWaitBackground` process still exists (as determined by a `kill -0`).
+. (line #19) The `TERM` signal sent to the `tryWaitBackground` process is finally recognized (after the `sleep` ends).
+. (line #20) The `wait` command in the `tryWait` wait loop ends with completion of the `tryWaitBackground` process.
+    The `wait` exit code, in this case, actually reflects the `tryWaitBackground` process termination code
+    but, since the `TERM` signal handler `wait` was _fooled_ by a second `TERM` signal, the `tryWait` exit
+    code is set to an incorrect value of 1.
+
+
+<<<
+==== Linux ====
+
+The following are the components used in the Linux experiment environment:
+
+* GNU bash, version 4.2.46(1)-release (x86_64-redhat-linux-gnu)
++
+This version is linked hard linked to `/bin/bash` and `/usr/bin/bash` and soft linked as
+  `/bin/sh` and `/usr/bin/sh`.
+
+===== Annotated Results =====
+
+As one might expect, since both environments link `/bin/sh` to `/bin/bash` the Linux results for `/bin/sh`
+are the same as those for `/bin/sh` on Mac OS X.  Similarly, the `/bin/bash` results are the same in both
+environments.  For annotations, see the `/bin/sh` and `/bin/bash` results in <<Mac OS X>>.
+The full results may be viewed at link:{includeDir}/rhel_results.txt[Linux results^].

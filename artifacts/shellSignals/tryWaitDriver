@@ -1,0 +1,69 @@
+#!/bin/sh
+# Tests signal handling in shell scripting.  This script is the driver script for the
+# ./tryWait and ./tryWaitBackground scripts used to demonstrate the effect of
+# SIGTERM on a shell wait command.
+#
+# Run as 
+#   ./tryWaitDriver
+# or
+#   HANDLE_TERM=true ./tryWaitDriver
+# enables the TERM signal handler in ./tryWaitBackground.
+# Run as
+#   HANDLE_TERM=false ./tryWaitDriver
+# omits the TERM single handler in ./tryWaitBackground.
+# Run with
+#   TERM_AGAIN=true ./tryWaitDriver
+# causes the TERM signal to be send to ./tryWait a second time to demonstrate
+# the impact of a second signal on the TERM signal handler in ./tryWait.
+#
+# The scripts are coded to use /bin/sh.  To use another shell implementation,
+# use
+#   USE_SHELL="<alternate_shell_filepath>" ./tryWaitDriver
+# While tryWaitDriver continues to use /bin/sh, the ./tryWait and ./tryWaitBackground
+# scripts will use the specified alternate shell.
+#
+# When run with the TERM handler in tryWaitBackground enabled, the script shows that wait 
+# can be terminated by SIGTERM and the wait exit code reflects interruption of the wait 
+# command and *not* termination of waited-upon (tryWaitBackground) process.  When the TERM 
+# handler in tryWaitBackground is disabled, the script shows that wait is again still 
+# terminated by SIGTERM with the wait exit code reflecting the wait interruption.  The code 
+# in tryWait differs from the code in start-tc-server.sh in that the tryWait version repeats
+# the wait (in a loop) until a "kill -0" indicates the background (server) process no longer
+# exists.  This causes the wait command to be re-driven and the *second* wait provides the 
+# background process exit code.
+#
+
+export USE_SHELL
+: ${USE_SHELL:=${SHELL}}
+
+START_TIME=`date '+%s'`
+timeDelta() {
+  currentTime=`date '+%s'`
+  echo `expr $currentTime - $START_TIME`
+}
+
+echo "`timeDelta` $0 [$$] starting ./tryWait"
+${USE_SHELL} ./tryWait $START_TIME &           # <1>
+PID=$!
+
+echo "`timeDelta` $0 [$$] pausing 5 seconds before sending TERM to ./tryWait [$PID]"
+sleep 5
+if kill -0 $PID 2>/dev/null ; then             # <2>
+  echo "`timeDelta` $0 [$$] sending TERM to ./tryWait [$PID]"
+  kill -TERM $PID
+
+  if [ "$TERM_AGAIN" = "true" ]; then          # <3>
+    sleep 1
+    echo "`timeDelta` $0 [$$] sending TERM to ./tryWait [$PID] **again**"
+    kill -TERM $PID
+  fi
+fi
+
+echo "`timeDelta` $0 [$$] waiting for ./tryWait [$PID] to complete"
+wait $PID
+exitCode=$?
+echo "`timeDelta` $0 [$$] wait for ./tryWait [$PID] finished; rc=$exitCode"
+
+exit $exitCode
+
+

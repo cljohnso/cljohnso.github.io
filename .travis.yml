@@ -7,6 +7,11 @@ branches:
     blog
 script:
   - bundle exec rake deploy
+#  - bundle exec jekyll build && bundle exec rake deploy
+addons:
+  apt:
+    packages:
+    - graphviz
 env:
   global:
   - secure: rqFOcR/Z28tx0PGYjEJgSxPJoZhTYn0RaAnpaRBPS8DI+QUnNJqglkxF4xw2GY0j+3eHu6Bee0b28MlpMGo+Gkxi53egGHtvE6v39Kcg8WTj/8iSvuUTxOp6fbZ/2d98gMtSj7FB7/3SRqJ7QuSkvzdhYEH2OVifHFqy9mT+GtMH0MKS5ikHVTWXyhJW3t3lG9Fcbp18XwOHhknxwpBcKLmjfXcxMePsygS790AAu9BYAVtcJjRGigqc3LGndwDGJv+Qu10xnzF4hs6DlsXVpDduOiDZ38abwPL/mWy++uDDp9w3ThMgmjprxzOuknXnTDD9ZE35okgEAjL9KqrZJvd2qqsrZ+5+c0UBulSIwx8ubvWzrzieFTbzUnTX394ZMfujLPjzTceBLbUqCK/rb/mUQLEhxVrDcnkCpmvG/42YdcgvL2tnamd/6qwsQqrwU0uJDWWhKuJ+zNVFHar2wX+g5Hn+tug2r6V88oVObD2HLiXe0sJwhzQIec2V50oT1gqQFXTef9leX/FaYlqnIwVgeMoqH5OwDAL7nlpXkFz7RecS2SHGkOROhlJITbfrqTlsAlDeokANYiraTrRBiuq7RI73hE2fcCUYUBTMInWFT8mdShO74E70Cy4THwgvD9mb9CKfbErINr6gVWyoXChutG6ray1q8T6yhHLyYNU=

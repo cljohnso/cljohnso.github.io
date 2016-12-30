@@ -1,0 +1,27 @@
+#!/bin/sh
+
+: ${DELAY:=30}                                                      # <1>
+
+START_TIME=${1:-`date '+%s'`}
+timeDelta() {
+  currentTime=`date '+%s'`
+  echo `expr $currentTime - $START_TIME`
+}
+
+echo "`timeDelta` $0 started; PID=$$, PPID=$PPID"
+
+if [ "$HANDLE_TERM" = "" -o "$HANDLE_TERM" = "true" ]; then         # <2>
+  handle_TERM() {
+    echo "`timeDelta` $0:handle_TERM [$$] received TERM signal; exiting with rc=7"
+    exit 7                                                          # <3>
+  }
+  trap handle_TERM TERM
+fi
+
+echo "`timeDelta` $0 [$$] entering sleep $DELAY"
+sleep $DELAY
+sleepRC=$?
+echo "`timeDelta` $0 [$$] exited sleep $DELAY; sleep rc=$sleepRC"
+
+echo "`timeDelta` $0 [$$] exiting with rc=2"
+exit 2
